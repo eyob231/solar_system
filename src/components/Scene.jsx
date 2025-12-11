@@ -1,108 +1,46 @@
 
 import { Canvas, useFrame,useLoader } from "@react-three/fiber";
 import { useRef } from "react";
-import { useTexture,useBackground } from "@react-three/drei";
+import { OrbitControls, useTexture } from "@react-three/drei";
 import Orbit from './Orbit.jsx'
 import * as THREE from 'three';
 import { useControls } from "leva";
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
 function OscillatingCollision() {
   const obj1 = useRef();
   const obj2 = useRef();
   const radius = 1;
+  const v1 = useRef(0.05); const v2 = useRef(-0.05);
+  useFrame(()=>{
+    obj1.current.position.x +=v1.current;
+    obj2.current.position.x +=v2.current; 
+    
+    const d = obj1.current.position.distanceTo(obj2.current.position);
+    if(d < radius * 2){
+      v1.current *= -1; v2.current *= -1;
+      
+    } 
+    if(obj1.current.position.x > 5 || obj1.current.position.x < -5){
+      v1.current *= -1;
+      v2.current *= -1;
+    }
+    
+    
+  })
   
-  // Store original oscillation parameters
-  const originalParams = useRef({
-    obj1: { amplitude: 5, speed: 0.001, offset: -2 },
-    obj2: { amplitude: 5, speed: 0.001, offset: 2 }
-  });
-  
-  // Track collision and recoil state
-  const collisionState = useRef({
-    isColliding: false,
-    recoilTime: 0,
-    recoilDuration: 300, // milliseconds
-    recoilForce: 0.2
-  });
-
-  useFrame(() => {
-    if (!obj1.current || !obj2.current) return;
-    
-    const currentTime = Date.now();
-    const { isColliding, recoilTime, recoilDuration, recoilForce } = collisionState.current;
-    
-    // Calculate distance
-    const distance = obj1.current.position.distanceTo(obj2.current.position);
-    
-    // COLLISION DETECTION
-    if (distance < radius * 2 && !isColliding) {
-      collisionState.current.isColliding = true;
-      collisionState.current.recoilTime = currentTime;
-      
-      // Calculate recoil direction (push them apart)
-      const dir = new THREE.Vector3()
-        .subVectors(obj2.current.position, obj1.current.position)
-        .normalize();
-      
-      // Apply instant recoil
-      obj1.current.position.sub(dir.multiplyScalar(recoilForce));
-      obj2.current.position.add(dir.multiplyScalar(recoilForce));
-    }
-    
-    // Check if recoil period is over
-    if (isColliding && currentTime - recoilTime > recoilDuration) {
-      collisionState.current.isColliding = false;
-    }
-    
-    // Calculate positions based on state
-    const { amplitude, speed, offset } = originalParams.current.obj1;
-    const { amplitude: amp2, speed: speed2, offset: offset2 } = originalParams.current.obj2;
-    
-    if (!isColliding) {
-      // NORMAL OSCILLATION (original motion)
-      const x1 = offset + Math.sin(currentTime * speed) * -amplitude;
-      const x2 = offset2 + Math.sin(currentTime * speed2) * amp2;
-      
-      obj1.current.position.set(x1, 0, 0);
-      obj2.current.position.set(x2, 0, 0);
-    } else {
-      // DURING RECOIL: Continue oscillation but with modified offset
-      const elapsed = currentTime - recoilTime;
-      const progress = elapsed / recoilDuration;
-      
-      // Ease back to original path
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-      
-      const x1 = offset + Math.sin(currentTime * speed) * amplitude;
-      const x2 = offset2 + Math.sin(currentTime * speed2) * amp2;
-      
-      // Smoothly interpolate back from recoil position
-      obj1.current.position.x = THREE.MathUtils.lerp(
-        obj1.current.position.x,
-        x1,
-        easeOut
-      );
-      obj2.current.position.x = THREE.MathUtils.lerp(
-        obj2.current.position.x,
-        x2,
-        easeOut
-      );
-    }
-  });
-
   return (
     <>
-      <mesh ref={obj1}>
-        <sphereGeometry args={[radius, 32, 32]} />
-        <meshStandardMaterial color={'red'} />
-      </mesh>
-      <mesh ref={obj2}>
-        <sphereGeometry args={[radius, 32, 32]} />
-        <meshStandardMaterial color={'blue'} />
-      </mesh>
+    <mesh ref={obj1} position={[-3, 0, 0]}>
+      <sphereGeometry args={[radius, 32, 32]} />
+      <meshStandardMaterial color="red" />
+    </mesh>
+    <mesh ref={obj2} position={[3, 0, 0]}>
+      <sphereGeometry args={[radius, 32, 32]} />
+      <meshStandardMaterial color="blue" />
+    </mesh>
     </>
-  );
+  )
 }
 
 function FirstChild() {
@@ -129,16 +67,16 @@ function FirstChild() {
 }
 
 function Model() {
-  const fbx = useLoader(FBXLoader, '/modle.fbx');
-  return <primitive object={fbx} position={[0,0,0]} />;
+  const fbx = useLoader(GLTFLoader, '/Car.glb');
+  return <primitive object={fbx.scene} position={[0,0,0]} />;
 }
 
-function Background() {
-  const texture = useTexture('/texture/space.jpg');
-  useBackground(texture);
-  return null;
-   // This component doesn't render anything visible
-}
+// function Background() {
+//   const texture = useTexture('/texture/space.jpg');
+//   useBackground(texture);
+//   return null;
+//    // This component doesn't render anything visible
+// }
 
 
 function Sun() {
@@ -372,8 +310,7 @@ export default function Scene() {
       
        
 
-      <Model />
-      <Background />
+      <OscillatingCollision />
      
       
       <OrbitControls />
